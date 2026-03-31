@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Result — FraudGuard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-dark px-4 py-3">
+  <div class="container-fluid">
+    <a href="/" class="navbar-brand d-flex align-items-center gap-2">
+      <span class="brand-badge">FG</span>
+      <span>Fraud<strong>Guard</strong></span>
+    </a>
+    <a href="/dashboard" class="btn btn-sm btn-outline-light">Dashboard</a>
+  </div>
+</nav>
+
+<div class="container my-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+
+      <!-- ─── Main verdict card ──────────────────────────── -->
+      <div class="verdict-card {{ 'verdict-fraud' if prediction == 'Fraud' else 'verdict-genuine' }}">
+
+        <div class="verdict-icon">
+          {% if prediction == 'Fraud' %}
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          {% else %}
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          {% endif %}
+        </div>
+
+        <div class="verdict-label">
+          {% if prediction == 'Fraud' %}
+            FRAUD DETECTED 🚨
+          {% else %}
+            GENUINE CLAIM ✅
+          {% endif %}
+        </div>
+
+        <!-- Probability gauge -->
+        <div class="gauge-container">
+          <svg class="gauge-svg" viewBox="0 0 200 110">
+            <!-- Track -->
+            <path class="gauge-track"
+              d="M 15 100 A 85 85 0 0 1 185 100"
+              fill="none" stroke-width="14" stroke-linecap="round"/>
+            <!-- Fill -->
+            <path class="gauge-fill"
+              id="gaugeFill"
+              d="M 15 100 A 85 85 0 0 1 185 100"
+              fill="none" stroke-width="14" stroke-linecap="round"
+              stroke-dasharray="267"
+              stroke-dashoffset="267"/>
+          </svg>
+          <div class="gauge-center">
+            <div class="gauge-number" id="gaugeNum">0<span class="gauge-pct">%</span></div>
+            <div class="gauge-sublabel">FRAUD PROBABILITY</div>
+          </div>
+        </div>
+
+        <div class="prob-row">
+          <div class="prob-item prob-fraud">
+            <div class="prob-val">{{ fraud_prob }}%</div>
+            <div class="prob-key">Fraud</div>
+          </div>
+          <div class="prob-divider"></div>
+          <div class="prob-item prob-genuine">
+            <div class="prob-val">{{ genuine_prob }}%</div>
+            <div class="prob-key">Genuine</div>
+          </div>
+        </div>
+
+        <div class="risk-level risk-{{ risk }}">{{ risk }} RISK</div>
+        <div class="confidence-text">
+          Model confidence: <strong>{{ confidence }}%</strong>
+          &nbsp;·&nbsp; Best model: <strong>{{ best_model }}</strong>
+        </div>
+
+      </div>
+
+      <!-- ─── Risk flags ───────────────────────────────── -->
+      {% if flags %}
+      <div class="result-section mt-4">
+        <div class="result-section-title">Risk Indicators</div>
+        <div class="flags-list">
+          {% for text, level in flags %}
+          <div class="flag-item flag-{{ level }}">
+            <span class="flag-dot"></span>
+            <span>{{ text }}</span>
+            <span class="flag-badge">{{ level|upper }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- ─── Submitted data summary ───────────────────── -->
+      <div class="result-section mt-4">
+        <div class="result-section-title">Claim Summary</div>
+        <div class="row g-2">
+          {% set labels = {
+            'AgeOfPolicyHolder':'Age','Deductible':'Deductible ($)',
+            'VehicleCategory':'Vehicle','VehiclePrice':'Vehicle Price ($)',
+            'Make':'Make','AccidentArea':'Area',
+            'Days_Policy_Accident':'Days to Accident',
+            'PastNumberOfClaims':'Past Claims',
+            'DriverRating':'Driver Rating','BasePolicy':'Policy Type'
+          } %}
+          {% for key, label in labels.items() %}
+            {% if form_data.get(key) %}
+            <div class="col-6 col-md-4">
+              <div class="summary-tile">
+                <div class="summary-label">{{ label }}</div>
+                <div class="summary-val">{{ form_data[key] }}</div>
+              </div>
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- ─── Actions ──────────────────────────────────── -->
+      <div class="d-flex gap-3 justify-content-center mt-4 flex-wrap">
+        <a href="/" class="btn-secondary-action">← Analyze Another Claim</a>
+        <a href="/dashboard" class="btn-secondary-action">View Dashboard</a>
+        <button onclick="window.print()" class="btn-secondary-action">🖨 Print Report</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container text-center">
+    <p class="mb-0">FraudGuard · Built with Flask + scikit-learn</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // ── Animate gauge on load ─────────────────────────────
+  const FRAUD_PROB = {{ fraud_prob }};
+  const isfraud   = {{ 'true' if prediction == 'Fraud' else 'false' }};
+
+  window.addEventListener('load', () => {
+    const fill    = document.getElementById('gaugeFill');
+    const numEl   = document.getElementById('gaugeNum');
+    const total   = 267;   // arc length for the semicircle
+    const target  = total - (FRAUD_PROB / 100) * total;
+
+    fill.style.stroke = isfraud ? '#ff3b5c' : '#00c875';
+    fill.style.transition = 'stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)';
+
+    // Trigger reflow then animate
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        fill.style.strokeDashoffset = target;
+      }, 100);
+    });
+
+    // Animate number counter
+    let current = 0;
+    const step  = FRAUD_PROB / 60;
+    const timer = setInterval(() => {
+      current = Math.min(current + step, FRAUD_PROB);
+      numEl.innerHTML = Math.round(current) + '<span class="gauge-pct">%</span>';
+      if (current >= FRAUD_PROB) clearInterval(timer);
+    }, 16);
+  });
+</script>
+</body>
+</html>

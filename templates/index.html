@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FraudGuard — Vehicle Insurance Fraud Detection</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<!-- ─── Navbar ─────────────────────────────────────────── -->
+<nav class="navbar navbar-dark px-4 py-3">
+  <div class="container-fluid">
+    <span class="navbar-brand d-flex align-items-center gap-2">
+      <span class="brand-badge">FG</span>
+      <span>Fraud<strong>Guard</strong></span>
+    </span>
+    <div class="d-flex align-items-center gap-3">
+      <a href="/dashboard" class="btn btn-sm btn-outline-light">Dashboard</a>
+      {% if model_ready %}
+        <span class="status-dot online">Model Online</span>
+      {% else %}
+        <span class="status-dot offline">Model Offline</span>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<!-- ─── Hero ────────────────────────────────────────────── -->
+<section class="hero-section">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-7">
+        <div class="hero-eyebrow">AI-POWERED INSURANCE FRAUD DETECTION</div>
+        <h1 class="hero-title">Spot Fraud<br><span class="text-accent">Instantly.</span></h1>
+        <p class="hero-sub">
+          Enter claim details below. Our machine learning model — trained on
+          15,000+ real insurance claims — returns a fraud probability score in
+          milliseconds.
+        </p>
+        {% if metrics %}
+        <div class="metric-pills">
+          <div class="metric-pill">
+            <span class="metric-val">{{ metrics.accuracy }}%</span>
+            <span class="metric-lbl">Accuracy</span>
+          </div>
+          <div class="metric-pill">
+            <span class="metric-val">{{ metrics.roc_auc }}</span>
+            <span class="metric-lbl">ROC-AUC</span>
+          </div>
+          <div class="metric-pill">
+            <span class="metric-val">{{ metrics.f1 }}</span>
+            <span class="metric-lbl">F1 Score</span>
+          </div>
+          {% if best_model %}
+          <div class="metric-pill accent-pill">
+            <span class="metric-val" style="font-size:12px">{{ best_model }}</span>
+            <span class="metric-lbl">Best Model</span>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+      <div class="col-lg-5 d-none d-lg-flex justify-content-end">
+        <div class="hero-graphic">
+          <div class="hex-grid">
+            <div class="hex h1"></div><div class="hex h2"></div>
+            <div class="hex h3"></div><div class="hex h4"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Flash messages / errors ─────────────────────────── -->
+<div class="container mt-3">
+  {% if error %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+      <strong>Error:</strong> {{ error }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endif %}
+  {% if errors %}
+    <div class="alert alert-warning">
+      <strong>Please fix the following:</strong>
+      <ul class="mb-0 mt-1">
+        {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+  {% if not model_ready %}
+    <div class="alert alert-info">
+      <strong>Model not loaded.</strong>
+      Run <code>python train_model.py</code> to train and save the model, then restart the app.
+    </div>
+  {% endif %}
+</div>
+
+<!-- ─── Form ─────────────────────────────────────────────── -->
+<div class="container mb-5">
+  <form action="/predict" method="POST" id="claimForm" novalidate>
+
+    <!-- Section: Policy Info -->
+    <div class="form-card">
+      <div class="form-card-header">
+        <span class="section-num">01</span>
+        <div>
+          <div class="section-title">Policy Information</div>
+          <div class="section-sub">Core policy and coverage details</div>
+        </div>
+      </div>
+      <div class="row g-3">
+
+        <div class="col-md-4">
+          <label class="form-label">Policy Holder Age *</label>
+          <input type="number" class="form-control" name="AgeOfPolicyHolder"
+                 placeholder="e.g. 35" min="16" max="100" required
+                 value="{{ form_data.AgeOfPolicyHolder if form_data else '' }}">
+          <div class="form-hint">Age of the insured person (16–100)</div>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Deductible ($) *</label>
+          <input type="number" class="form-control" name="Deductible"
+                 placeholder="e.g. 500" min="0" max="10000" required
+                 value="{{ form_data.Deductible if form_data else '' }}">
+          <div class="form-hint">Policy deductible amount</div>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Base Policy *</label>
+          <select class="form-select" name="BasePolicy" required>
+            <option value="">— select —</option>
+            {% for opt in ['Liability','Collision','All Perils'] %}
+              <option value="{{ opt }}"
+                {% if form_data and form_data.BasePolicy == opt %}selected{% endif %}>
+                {{ opt }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Driver Rating *</label>
+          <select class="form-select" name="DriverRating" required>
+            <option value="">— select —</option>
+            <option value="4" {% if form_data and form_data.DriverRating=='4' %}selected{% endif %}>4 — Excellent</option>
+            <option value="3" {% if form_data and form_data.DriverRating=='3' %}selected{% endif %}>3 — Good</option>
+            <option value="2" {% if form_data and form_data.DriverRating=='2' %}selected{% endif %}>2 — Fair</option>
+            <option value="1" {% if form_data and form_data.DriverRating=='1' %}selected{% endif %}>1 — Poor</option>
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Policy Year *</label>
+          <input type="number" class="form-control" name="Year"
+                 placeholder="e.g. 2022" min="2000" max="2030" required
+                 value="{{ form_data.Year if form_data else '' }}">
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Sex *</label>
+          <select class="form-select" name="Sex" required>
+            <option value="">— select —</option>
+            <option value="Male"   {% if form_data and form_data.Sex=='Male'   %}selected{% endif %}>Male</option>
+            <option value="Female" {% if form_data and form_data.Sex=='Female' %}selected{% endif %}>Female</option>
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Marital Status *</label>
+          <select class="form-select" name="MaritalStatus" required>
+            <option value="">— select —</option>
+            {% for opt in ['Single','Married','Divorced','Widow'] %}
+              <option value="{{ opt }}"
+                {% if form_data and form_data.MaritalStatus == opt %}selected{% endif %}>
+                {{ opt }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Section: Vehicle Info -->
+    <div class="form-card">
+      <div class="form-card-header">
+        <span class="section-num">02</span>
+        <div>
+          <div class="section-title">Vehicle Information</div>
+          <div class="section-sub">Details about the insured vehicle</div>
+        </div>
+      </div>
+      <div class="row g-3">
+
+        <div class="col-md-4">
+          <label class="form-label">Vehicle Category *</label>
+          <select class="form-select" name="VehicleCategory" required>
+            <option value="">— select —</option>
+            {% for opt in ['Sedan','Sport','Utility'] %}
+              <option value="{{ opt }}"
+                {% if form_data and form_data.VehicleCategory == opt %}selected{% endif %}>
+                {{ opt }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Vehicle Price ($) *</label>
+          <input type="number" class="form-control" name="VehiclePrice"
+                 placeholder="e.g. 25000" min="0" required
+                 value="{{ form_data.VehiclePrice if form_data else '' }}">
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Make / Brand *</label>
+          <input type="text" class="form-control" name="Make"
+                 placeholder="e.g. Toyota" required
+                 value="{{ form_data.Make if form_data else '' }}">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Section: Incident Info -->
+    <div class="form-card">
+      <div class="form-card-header">
+        <span class="section-num">03</span>
+        <div>
+          <div class="section-title">Incident Details</div>
+          <div class="section-sub">Information about the claim event</div>
+        </div>
+      </div>
+      <div class="row g-3">
+
+        <div class="col-md-4">
+          <label class="form-label">Accident Area *</label>
+          <select class="form-select" name="AccidentArea" required>
+            <option value="">— select —</option>
+            <option value="Urban" {% if form_data and form_data.AccidentArea=='Urban' %}selected{% endif %}>Urban</option>
+            <option value="Rural" {% if form_data and form_data.AccidentArea=='Rural' %}selected{% endif %}>Rural</option>
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Day of Week (Claimed) *</label>
+          <select class="form-select" name="DayOfWeekClaimed" required>
+            <option value="">— select —</option>
+            {% for d in ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] %}
+              <option value="{{ d }}"
+                {% if form_data and form_data.DayOfWeekClaimed == d %}selected{% endif %}>
+                {{ d }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Fault *</label>
+          <select class="form-select" name="Fault" required>
+            <option value="">— select —</option>
+            <option value="Policy Holder" {% if form_data and form_data.Fault=='Policy Holder' %}selected{% endif %}>Policy Holder</option>
+            <option value="Third Party"   {% if form_data and form_data.Fault=='Third Party'   %}selected{% endif %}>Third Party</option>
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Days (Policy → Accident) *</label>
+          <input type="number" class="form-control" name="Days_Policy_Accident"
+                 placeholder="e.g. 365" min="0" required
+                 value="{{ form_data.Days_Policy_Accident if form_data else '' }}">
+          <div class="form-hint">Days between policy start and accident</div>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Days (Policy → Claim) *</label>
+          <input type="number" class="form-control" name="Days_Policy_Claim"
+                 placeholder="e.g. 370" min="0" required
+                 value="{{ form_data.Days_Policy_Claim if form_data else '' }}">
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Past Claims *</label>
+          <input type="number" class="form-control" name="PastNumberOfClaims"
+                 placeholder="e.g. 0" min="0" max="20" required
+                 value="{{ form_data.PastNumberOfClaims if form_data else '' }}">
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Number of Supplements *</label>
+          <input type="number" class="form-control" name="NumberOfSuppliments"
+                 placeholder="e.g. 0" min="0" max="10" required
+                 value="{{ form_data.NumberOfSuppliments if form_data else '' }}">
+          <div class="form-hint">Additional claim filings</div>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Address Changes (past year) *</label>
+          <input type="number" class="form-control" name="AddressChange_Claim"
+                 placeholder="0–4" min="0" max="4" required
+                 value="{{ form_data.AddressChange_Claim if form_data else '' }}">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <div class="text-center mt-4">
+      <button type="submit" class="btn-analyze" id="submitBtn"
+              {% if not model_ready %}disabled{% endif %}>
+        <span id="btnText">Analyze Claim →</span>
+        <span id="btnSpinner" class="spinner-border spinner-border-sm ms-2 d-none"></span>
+      </button>
+      {% if not model_ready %}
+        <div class="mt-2 text-muted small">Run <code>python train_model.py</code> to enable predictions.</div>
+      {% endif %}
+    </div>
+
+  </form>
+</div>
+
+<!-- ─── Footer ───────────────────────────────────────────── -->
+<footer class="site-footer">
+  <div class="container text-center">
+    <p class="mb-1">FraudGuard · Built with Flask + scikit-learn + Bootstrap</p>
+    <p class="text-muted small">For educational purposes. Not for production insurance decisions.</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Show spinner on submit
+  document.getElementById('claimForm').addEventListener('submit', function () {
+    document.getElementById('btnText').textContent = 'Analyzing…';
+    document.getElementById('btnSpinner').classList.remove('d-none');
+    document.getElementById('submitBtn').disabled = true;
+  });
+</script>
+</body>
+</html>

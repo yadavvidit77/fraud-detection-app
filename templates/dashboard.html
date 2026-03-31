@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — FraudGuard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<nav class="navbar navbar-dark px-4 py-3">
+  <div class="container-fluid">
+    <a href="/" class="navbar-brand d-flex align-items-center gap-2">
+      <span class="brand-badge">FG</span>
+      <span>Fraud<strong>Guard</strong></span>
+    </a>
+    <span class="text-light opacity-75 small">Model Dashboard</span>
+  </div>
+</nav>
+
+<div class="container my-5">
+
+  <div class="page-heading">
+    <h2>Model Performance Dashboard</h2>
+    <p class="text-muted">Training results and metrics for all compared models</p>
+  </div>
+
+  {% if not model_ready %}
+  <div class="alert alert-warning">
+    Model not yet trained. Run <code>python train_model.py</code> to generate metrics.
+  </div>
+  {% endif %}
+
+  {% if summary %}
+
+  <!-- Best model highlight -->
+  <div class="dash-hero-card mb-4">
+    <div class="row align-items-center">
+      <div class="col-md-6">
+        <div class="dash-hero-label">SELECTED MODEL</div>
+        <div class="dash-hero-name">{{ summary.best_model }}</div>
+        <div class="dash-hero-sub">Chosen by highest ROC-AUC on held-out test set</div>
+      </div>
+      {% set m = summary.metrics[summary.best_model] %}
+      <div class="col-md-6">
+        <div class="row g-3 text-center mt-2 mt-md-0">
+          <div class="col-3">
+            <div class="dash-kpi">{{ m.accuracy }}%</div>
+            <div class="dash-kpi-lbl">Accuracy</div>
+          </div>
+          <div class="col-3">
+            <div class="dash-kpi">{{ m.roc_auc }}</div>
+            <div class="dash-kpi-lbl">ROC-AUC</div>
+          </div>
+          <div class="col-3">
+            <div class="dash-kpi">{{ m.f1 }}</div>
+            <div class="dash-kpi-lbl">F1</div>
+          </div>
+          <div class="col-3">
+            <div class="dash-kpi">{{ m.cv_mean }}</div>
+            <div class="dash-kpi-lbl">CV AUC</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- All model comparison -->
+  <div class="form-card">
+    <div class="form-card-header">
+      <span class="section-num">01</span>
+      <div>
+        <div class="section-title">Model Comparison</div>
+        <div class="section-sub">All trained models ranked by ROC-AUC</div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table dash-table mb-0">
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Accuracy</th>
+            <th>ROC-AUC</th>
+            <th>F1 Score</th>
+            <th>CV AUC</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for name, m in summary.metrics.items() | sort(attribute='1.roc_auc', reverse=True) %}
+          <tr class="{{ 'best-row' if name == summary.best_model else '' }}">
+            <td><strong>{{ name }}</strong></td>
+            <td>{{ m.accuracy }}%</td>
+            <td>{{ m.roc_auc }}</td>
+            <td>{{ m.f1 }}</td>
+            <td>{{ m.cv_mean }}</td>
+            <td>
+              {% if name == summary.best_model %}
+                <span class="best-badge">★ SELECTED</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% endif %}
+
+  <!-- Charts -->
+  <div class="row g-4 mt-2">
+    <div class="col-md-6">
+      <div class="form-card h-100">
+        <div class="form-card-header">
+          <span class="section-num">02</span>
+          <div><div class="section-title">Confusion Matrix</div></div>
+        </div>
+        <div class="text-center p-3">
+          <img src="{{ url_for('static', filename='charts/confusion_matrix.png') }}"
+               class="img-fluid chart-img" alt="Confusion Matrix"
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+          <div class="chart-placeholder" style="display:none">
+            Run train_model.py to generate charts
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="form-card h-100">
+        <div class="form-card-header">
+          <span class="section-num">03</span>
+          <div><div class="section-title">Model Comparison</div></div>
+        </div>
+        <div class="text-center p-3">
+          <img src="{{ url_for('static', filename='charts/model_comparison.png') }}"
+               class="img-fluid chart-img" alt="Model Comparison"
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+          <div class="chart-placeholder" style="display:none">
+            Run train_model.py to generate charts
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12">
+      <div class="form-card">
+        <div class="form-card-header">
+          <span class="section-num">04</span>
+          <div><div class="section-title">Feature Importances (Random Forest)</div></div>
+        </div>
+        <div class="text-center p-3">
+          <img src="{{ url_for('static', filename='charts/feature_importance.png') }}"
+               class="img-fluid chart-img" alt="Feature Importance"
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+          <div class="chart-placeholder" style="display:none">
+            Run train_model.py to generate charts
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="text-center mt-4">
+    <a href="/" class="btn-secondary-action">← Back to Claim Form</a>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container text-center">
+    <p>FraudGuard · Model Dashboard</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

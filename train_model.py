@@ -111,7 +111,7 @@ mapping_days = {
     'more than 60': 75
 }
 
-df['Days_Policy_Accident'] = df['Days_Policy_Accident'].map(mapping_days)
+df['Days_Policy_Accident'] = df['Days_Policy_Accident'].map(mapping_days).fillna(0)
 df['Days_Policy_Accident'].fillna(0, inplace=True)
 
 
@@ -281,8 +281,6 @@ print(classification_report(
 ))
 
 # Save the best pipeline
-import joblib
-
 joblib.dump({
     "model": best['pipeline'],          # your trained pipeline
     "columns": X.columns.tolist()       # all training columns
@@ -381,6 +379,6 @@ print(f"  Best model : {best_name}")
 print(f"  Accuracy   : {best['accuracy']*100:.2f}%")
 print(f"  ROC-AUC    : {best['roc_auc']:.4f}")
 print("\n  Now run:  python app.py")
-print("  Then open: http://localhost:5001")
+print("  Then open: http://localhost:5000")
 print("=" * 65 + "\n")
 

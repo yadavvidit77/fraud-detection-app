@@ -53,7 +53,7 @@ print("\n[1/7] Loading dataset...")
 #     print("  and place it in this folder.\n")
 #     exit(1)
 
-df = pd.read_csv("/Users/vidit/Downloads/fraud_oracle.csv")
+df = pd.read_csv("fraud_oracle.csv")
 print(f"  Loaded {len(df):,} rows × {len(df.columns)} columns")
 print(f"  Fraud rate: {df['FraudFound_P'].mean()*100:.1f}%")
 
